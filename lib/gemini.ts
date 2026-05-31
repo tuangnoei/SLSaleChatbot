@@ -37,7 +37,7 @@ export async function callGemini(
     }
 
     const text = response.text?.trim() ?? "";
-    if (!text || text === "NO_ANSWER") return null;
+    if (!text || text.includes("NO_ANSWER")) return null;
 
     return text;
   } catch (err) {
