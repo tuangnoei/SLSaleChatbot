@@ -1,4 +1,4 @@
-export const MODEL = "gemini-3.5-flash";
+export const MODEL = "gemini-2.5-flash";
 export const TEMPERATURE = 1.0;
 export const MAX_OUTPUT_TOKENS = 1024;
 export const SHEET_CACHE_TTL_MS = 60_000;
