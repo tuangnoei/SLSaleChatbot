@@ -13,7 +13,9 @@ export function buildSystemPrompt(faqCsv: string): string {
 </constraints>
 
 <output_format>
-ตอบเป็นภาษาไทย ไม่ใช้ markdown ไม่ใช้ bullet ไม่ใช้สัญลักษณ์จัดรูปแบบ
+ตอบเป็นภาษาไทย ไม่ใช้ markdown ไม่ใช้สัญลักษณ์จัดรูปแบบ
+ถ้าคำตอบมีหลายรายการ ให้ใช้ bullet • นำหน้าแต่ละข้อ (ไม่ใช้ * หรือ - เพราะ LINE ไม่ render markdown)
+ถ้าคำตอบสั้นหรือเป็นประโยคเดียว ไม่ต้องใช้ bullet
 </output_format>
 
 <faq>
