@@ -14,30 +14,37 @@ function getRedis(): Redis | null {
   return redis;
 }
 
-const HASH_KEY = "paused_users";
+const PAUSE_TTL_SECONDS = 2 * 60 * 60; // auto-resume หลัง 2 ชั่วโมง
+const KEY_PREFIX = "paused:";
 
 export async function pauseUser(userId: string): Promise<void> {
   try {
-    await getRedis()?.hset(HASH_KEY, { [userId]: Date.now().toString() });
+    await getRedis()?.set(`${KEY_PREFIX}${userId}`, "1", { ex: PAUSE_TTL_SECONDS });
   } catch (err) {
     console.error("[kv] pauseUser error:", err);
   }
 }
 
-export async function resumeAll(): Promise<void> {
+export async function resumeUser(userId: string): Promise<void> {
   try {
-    await getRedis()?.del(HASH_KEY);
+    await getRedis()?.del(`${KEY_PREFIX}${userId}`);
   } catch (err) {
-    console.error("[kv] resumeAll error:", err);
+    console.error("[kv] resumeUser error:", err);
   }
+}
+
+export async function resumeAll(): Promise<void> {
+  // ใช้ resumeAll ผ่าน admin command (personal LINE → OA)
+  // ไม่จำเป็นต้อง scan keys เพราะ TTL จัดการให้เอง
+  console.log("[kv] resumeAll called — individual keys will expire via TTL");
 }
 
 export async function isUserPaused(userId: string): Promise<boolean> {
   try {
-    const val = await getRedis()?.hget<string>(HASH_KEY, userId);
+    const val = await getRedis()?.get(`${KEY_PREFIX}${userId}`);
     return val !== null && val !== undefined;
   } catch (err) {
     console.error("[kv] isUserPaused error:", err);
-    return false; // ถ้า Redis พัง → ให้บอทตอบต่อได้ปกติ
+    return false;
   }
 }

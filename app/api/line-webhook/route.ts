@@ -3,7 +3,7 @@ import { getFaqText, getHolidays } from "@/lib/sheet";
 import { callGemini } from "@/lib/gemini";
 import { isWithinOpenHours } from "@/lib/hours";
 import { DEFAULT_REPLY_OPEN, DEFAULT_REPLY_CLOSED } from "@/lib/config";
-import { pauseUser, resumeAll, isUserPaused } from "@/lib/kv";
+import { pauseUser, resumeUser, isUserPaused } from "@/lib/kv";
 
 const client = new messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
@@ -13,13 +13,11 @@ export async function POST(req: Request) {
   const signature = req.headers.get("x-line-signature") ?? "";
   const rawBody = await req.text();
 
-  // 1. verify signature
   if (!validateSignature(rawBody, process.env.LINE_CHANNEL_SECRET!, signature)) {
     console.warn("[webhook] invalid signature");
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // 2. parse body
   let body: { events: unknown[] };
   try {
     body = JSON.parse(rawBody);
@@ -28,7 +26,6 @@ export async function POST(req: Request) {
     return new Response("Bad Request", { status: 400 });
   }
 
-  // 3. process events
   const events = body.events ?? [];
   await Promise.allSettled(
     events.map(async (ev) => {
@@ -42,36 +39,25 @@ export async function POST(req: Request) {
       const replyToken = event.replyToken as string;
       const userText = (message.text as string) ?? "";
 
-      // skip button triggers
       if (userText.includes("ปุ่ม:")) return;
 
-      // admin commands (ส่งจาก LINE ส่วนตัวของแอดมินมาหา OA)
-      const isAdmin = userId === process.env.ADMIN_LINE_USER_ID;
-      if (isAdmin) {
-        if (userText.includes("แอดมินยินดีดูแลลูกค้า")) {
-          await resumeAll();
-          console.log("[admin] resumed all paused users");
-        } else if (userText.includes("แอดมินสวัสดีค่ะ")) {
-          console.log("[admin] takeover signal received");
-        } else {
-          console.log("[admin] message from admin:", userText);
-        }
-        return; // ไม่ส่ง reply ให้แอดมิน
+      // ลูกค้าส่ง keyword "แอดมินยินดีดูแลลูกค้า" = แอดมินจบแล้ว resume บอท
+      // (ใช้ได้ทั้งแอดมินส่งจาก personal LINE หรือแจ้งลูกค้าให้กดปุ่ม)
+      if (userText.includes("แอดมินยินดีดูแลลูกค้า")) {
+        await resumeUser(userId);
+        console.log("[webhook] user resumed:", userId);
+        return;
       }
 
-      // ถ้า user อยู่ใน admin mode → เงียบ
       if (await isUserPaused(userId)) {
         console.log("[webhook] user paused, skipping:", userId);
         return;
       }
 
-      // 4. ดึง FAQ + Holidays
       const [faqCsv, holidays] = await Promise.all([getFaqText(), getHolidays()]);
 
-      // 5. เรียก Gemini
       let replyText: string | null = await callGemini(faqCsv, userText);
 
-      // 6. Gemini ตอบไม่ได้ → default message + auto-pause รอแอดมิน
       if (!replyText) {
         const open = isWithinOpenHours(holidays);
         replyText = open ? DEFAULT_REPLY_OPEN : DEFAULT_REPLY_CLOSED;
@@ -79,7 +65,6 @@ export async function POST(req: Request) {
         console.log("[webhook] user paused for admin:", userId);
       }
 
-      // 7. ส่ง reply
       try {
         await client.replyMessage({
           replyToken,
