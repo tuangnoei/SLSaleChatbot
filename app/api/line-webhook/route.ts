@@ -41,6 +41,8 @@ export async function POST(req: Request) {
       const replyToken = event.replyToken as string;
       const userText = (message.text as string) ?? "";
 
+      if (userText.includes("ปุ่ม:")) return;
+
       // 4. ดึง FAQ + Holidays (จาก memory cache)
       const [faqCsv, holidays] = await Promise.all([getFaqText(), getHolidays()]);
 
