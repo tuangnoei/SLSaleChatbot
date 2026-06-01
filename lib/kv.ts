@@ -14,7 +14,7 @@ function getRedis(): Redis | null {
   return redis;
 }
 
-const PAUSE_TTL_SECONDS = 2 * 60 * 60; // auto-resume หลัง 2 ชั่วโมง
+const PAUSE_TTL_SECONDS = 30 * 60; // auto-resume หลัง 30 นาที
 const KEY_PREFIX = "paused:";
 
 export async function pauseUser(userId: string): Promise<void> {
