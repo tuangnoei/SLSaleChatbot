@@ -41,14 +41,21 @@ export async function POST(req: Request) {
 
       if (userText.includes("ปุ่ม:")) return;
 
-      // ลูกค้าส่ง keyword "แอดมินยินดีดูแลลูกค้า" = แอดมินจบแล้ว resume บอท
-      // (ใช้ได้ทั้งแอดมินส่งจาก personal LINE หรือแจ้งลูกค้าให้กดปุ่ม)
-      if (userText.includes("แอดมินยินดีดูแลลูกค้า")) {
-        await resumeUser(userId);
-        console.log("[webhook] user resumed:", userId);
+      // แอดมินส่ง "แอดมินสวัสดีค่ะ" → pause ลูกค้าคนนี้
+      if (userText.includes("แอดมินสวัสดีค่ะ")) {
+        await pauseUser(userId);
+        console.log("[webhook] admin takeover — user paused:", userId);
         return;
       }
 
+      // แอดมินส่ง "แอดมินยินดีดูแลลูกค้า" → resume บอท
+      if (userText.includes("แอดมินยินดีดูแลลูกค้า")) {
+        await resumeUser(userId);
+        console.log("[webhook] admin done — user resumed:", userId);
+        return;
+      }
+
+      // ถ้า user อยู่ใน admin mode → เงียบ
       if (await isUserPaused(userId)) {
         console.log("[webhook] user paused, skipping:", userId);
         return;
@@ -58,11 +65,10 @@ export async function POST(req: Request) {
 
       let replyText: string | null = await callGemini(faqCsv, userText);
 
+      // ตอบไม่ได้ → default reply (ไม่ auto-pause)
       if (!replyText) {
         const open = isWithinOpenHours(holidays);
         replyText = open ? DEFAULT_REPLY_OPEN : DEFAULT_REPLY_CLOSED;
-        await pauseUser(userId);
-        console.log("[webhook] user paused for admin:", userId);
       }
 
       try {
