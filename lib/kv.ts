@@ -14,37 +14,31 @@ function getRedis(): Redis | null {
   return redis;
 }
 
-const PAUSE_TTL_SECONDS = 30 * 60; // auto-resume หลัง 30 นาที
-const KEY_PREFIX = "paused:";
+const ADMIN_MODE_KEY = "admin_mode";
+const ADMIN_MODE_TTL = 30 * 60; // auto-resume หลัง 30 นาที
 
-export async function pauseUser(userId: string): Promise<void> {
+export async function setAdminMode(): Promise<void> {
   try {
-    await getRedis()?.set(`${KEY_PREFIX}${userId}`, "1", { ex: PAUSE_TTL_SECONDS });
+    await getRedis()?.set(ADMIN_MODE_KEY, "1", { ex: ADMIN_MODE_TTL });
   } catch (err) {
-    console.error("[kv] pauseUser error:", err);
+    console.error("[kv] setAdminMode error:", err);
   }
 }
 
-export async function resumeUser(userId: string): Promise<void> {
+export async function clearAdminMode(): Promise<void> {
   try {
-    await getRedis()?.del(`${KEY_PREFIX}${userId}`);
+    await getRedis()?.del(ADMIN_MODE_KEY);
   } catch (err) {
-    console.error("[kv] resumeUser error:", err);
+    console.error("[kv] clearAdminMode error:", err);
   }
 }
 
-export async function resumeAll(): Promise<void> {
-  // ใช้ resumeAll ผ่าน admin command (personal LINE → OA)
-  // ไม่จำเป็นต้อง scan keys เพราะ TTL จัดการให้เอง
-  console.log("[kv] resumeAll called — individual keys will expire via TTL");
-}
-
-export async function isUserPaused(userId: string): Promise<boolean> {
+export async function isAdminMode(): Promise<boolean> {
   try {
-    const val = await getRedis()?.get(`${KEY_PREFIX}${userId}`);
+    const val = await getRedis()?.get(ADMIN_MODE_KEY);
     return val !== null && val !== undefined;
   } catch (err) {
-    console.error("[kv] isUserPaused error:", err);
+    console.error("[kv] isAdminMode error:", err);
     return false;
   }
 }

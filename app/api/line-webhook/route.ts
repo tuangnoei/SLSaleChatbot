@@ -3,7 +3,7 @@ import { getFaqText, getHolidays } from "@/lib/sheet";
 import { callGemini } from "@/lib/gemini";
 import { isWithinOpenHours } from "@/lib/hours";
 import { DEFAULT_REPLY_OPEN, DEFAULT_REPLY_CLOSED } from "@/lib/config";
-import { pauseUser, resumeUser, isUserPaused } from "@/lib/kv";
+import { setAdminMode, clearAdminMode, isAdminMode } from "@/lib/kv";
 
 const client = new messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
@@ -35,29 +35,27 @@ export async function POST(req: Request) {
       const message = event.message as Record<string, unknown>;
       if (message?.type !== "text") return;
 
-      const userId = (event.source as Record<string, unknown>)?.userId as string;
       const replyToken = event.replyToken as string;
       const userText = (message.text as string) ?? "";
 
       if (userText.includes("ปุ่ม:")) return;
 
-      // แอดมินส่ง "แอดมินสวัสดีค่ะ" → pause ลูกค้าคนนี้
+      // admin ส่ง keyword จาก LINE ส่วนตัวมาหา OA → global pause/resume
       if (userText.includes("แอดมินสวัสดีค่ะ")) {
-        await pauseUser(userId);
-        console.log("[webhook] admin takeover — user paused:", userId);
+        await setAdminMode();
+        console.log("[webhook] admin mode ON — bot paused globally");
         return;
       }
 
-      // แอดมินส่ง "แอดมินยินดีดูแลลูกค้า" → resume บอท
       if (userText.includes("แอดมินยินดีดูแลลูกค้า")) {
-        await resumeUser(userId);
-        console.log("[webhook] admin done — user resumed:", userId);
+        await clearAdminMode();
+        console.log("[webhook] admin mode OFF — bot resumed");
         return;
       }
 
-      // ถ้า user อยู่ใน admin mode → เงียบ
-      if (await isUserPaused(userId)) {
-        console.log("[webhook] user paused, skipping:", userId);
+      // admin กำลังดูแลลูกค้าอยู่ → บอทเงียบทุกคน
+      if (await isAdminMode()) {
+        console.log("[webhook] admin mode active, skipping");
         return;
       }
 
@@ -65,7 +63,6 @@ export async function POST(req: Request) {
 
       let replyText: string | null = await callGemini(faqCsv, userText);
 
-      // ตอบไม่ได้ → default reply (ไม่ auto-pause)
       if (!replyText) {
         const open = isWithinOpenHours(holidays);
         replyText = open ? DEFAULT_REPLY_OPEN : DEFAULT_REPLY_CLOSED;
