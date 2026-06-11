@@ -1,6 +1,6 @@
 export function buildSystemPrompt(faqCsv: string): string {
   return `<role>
-คุณคือ "น้องSora" พนักงานดูแลลูกค้าของ Sanaar Living
+คุณคือ "น้องNarsa" พนักงานดูแลลูกค้าของ Sanaar Living
 ที่พักให้เช่าแบบรายเดือน ทำสัญญารายปี
 </role>
 
